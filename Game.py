@@ -29,12 +29,16 @@ rows_of_blocks = 5
 columns_of_blocks = 10
 
 # Устанавливаем начальные значения скорости мяча
-ball_speed_x = 2  # Начальная скорость по оси X
-ball_speed_y = -2  # Начальная скорость по оси Y
+ball_speed_x = 2
+ball_speed_y = -2
 
 # Создаем экран
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Отбивание мяча с блоками и звёздочками")
+
+# Загружаем изображение фона
+background_image = pygame.image.load('background.jpg')  # Замените на название вашего изображения фона
+background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))  # Измените размер изображения под экран
 
 # Класс блока
 class Block:
@@ -48,10 +52,8 @@ class Block:
 # Класс звезды
 class Star:
     def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, star_size, star_size)
+        self.rect = pygame.Rect(x, y, star_size, star_size)  # Звезда 25x25
         self.color = GREEN
-        self.active = True
-        self.spawn_time = time.time()
         
     def draw(self, surface):
         pygame.draw.rect(surface, self.color, self.rect)
@@ -61,7 +63,6 @@ class GreenBall:
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, ball_size, ball_size)
         self.color = GREEN
-        self.active = True
         self.spawn_time = time.time()
         
     def draw(self, surface):
@@ -69,7 +70,7 @@ class GreenBall:
 
 # Главная функция игры
 def game_loop():
-    global ball_speed_x, ball_speed_y  # Используем глобальные переменные
+    global ball_speed_x, ball_speed_y
 
     clock = pygame.time.Clock()
     
@@ -106,61 +107,58 @@ def game_loop():
 
         # Проверка столкновения с границами
         if ball_x <= 0 or ball_x >= WIDTH - ball_size:
-            ball_speed_x = -ball_speed_x  # Отскок от стены
+            ball_speed_x = -ball_speed_x
 
         if ball_y <= 0:
-            ball_speed_y = -ball_speed_y  # Отскок от верхней стены
+            ball_speed_y = -ball_speed_y
+            score += 10
 
         # Проверка столкновения с платформой
-        if (paddle_y < ball_y + ball_size < paddle_y + paddle_height) and (paddle_x < ball_x < paddle_x + paddle_width):
-            ball_speed_y = -abs(ball_speed_y)  # Убедимся, что мяч отскакивает вверх
-            ball_speed_x *= 1.25  # Увеличиваем скорость мяча по X на 25%
-            ball_speed_y *= 1.25  # Увеличиваем скорость мяча по Y на 25%
-            # Ограничиваем максимальную скорость мяча
-            ball_speed_x = max(2, min(10, ball_speed_x))  
-            ball_speed_y = max(2, min(10, ball_speed_y))
+        if (paddle_y < ball_y + ball_size and 
+            paddle_x < ball_x + ball_size and 
+            paddle_x + paddle_width > ball_x):  # Убедимся, что мяч попал на платформу
+            ball_speed_y = -abs(ball_speed_y)
+            ball_speed_x *= 1.25  
 
         # Проверка столкновения с блоками
-        for block in blocks[:]:  # Итерируем по копии списка
+        for block in blocks[:]:
             if block.rect.colliderect(pygame.Rect(ball_x, ball_y, ball_size, ball_size)):
-                blocks.remove(block)  # Удаляем блок
-                ball_speed_y = -ball_speed_y  # Отскок мяча
-                score += 5  # Увеличиваем счёт при разбиении блока
-                ball_speed_x *= 1.25  # Увеличиваем скорость мяча на 25%
-                ball_speed_y *= 1.25  # Увеличиваем скорость мяча на 25%
-                # Ограничиваем максимальную скорость мяча
-                ball_speed_x = max(2, min(10, ball_speed_x))
-                ball_speed_y = max(2, min(10, ball_speed_y))
-                break  # Прерываем цикл после столкновения
+                blocks.remove(block)
+                ball_speed_y = -ball_speed_y  
+                score += 5  
+                break  
 
         # Проверка, упал ли мяч
         if ball_y > HEIGHT:
             print("Вы проиграли! Ваш итоговый счёт:", score)
             running = False
 
-        # Проверка на создание звёздочек
-        if time.time() - last_star_spawn_time >= 13:
+            # Проверка на создание звёздочек
+        if time.time() - last_star_spawn_time >= 3:  # Уменьшение времени до появления звезды для тестирования
             star_x = random.randint(int(paddle_x), int(paddle_x + paddle_width - star_size))
-            stars.append(Star(star_x, paddle_y - star_size))  # Звезда появится над платформой
+            stars.append(Star(star_x, -star_size))  # Звезда появится выше экрана, чтобы избежать коллизий
             last_star_spawn_time = time.time()
 
-        # Проверка столкновения с звёздочками
-        for star in stars[:]:  # Итерируем по копии списка
-            if star.active and star.rect.colliderect(pygame.Rect(paddle_x, paddle_y, paddle_width, paddle_height)):
-                stars.remove(star)  # Удаляем звезду
+        # Проверка столкновения с звёздами
+        for star in stars[:]:
+            if star.rect.colliderect(pygame.Rect(paddle_x, paddle_y, paddle_width, paddle_height)):
+                stars.remove(star)
                 # Создаем 6 зеленых мячей
                 for _ in range(6):
                     green_balls.append(GreenBall(paddle_x + random.randint(-50, 50), paddle_y - 50))
-                break  # Прерываем цикл после столкновения
+                break  
 
+        # Рисуем звёзды (убедитесь, что мы рисуем звезды на экране)
+        for star in stars:
+            star.draw(screen)
         # Обновляем зеленые мячи
         for green_ball in green_balls[:]:
             # Проверяем время жизни зелёного мяча
             if time.time() - green_ball.spawn_time > 15:
-                green_balls.remove(green_ball)  # Удаляем, если прошло 15 секунд
+                green_balls.remove(green_ball)
 
         # Рисуем объекты
-        screen.fill(WHITE)  # Очистка экрана
+        screen.blit(background_image, (0, 0))  # Отрисовываем фон
         pygame.draw.rect(screen, BLUE, (paddle_x, paddle_y, paddle_width, paddle_height))  # Платформа
         pygame.draw.ellipse(screen, RED, (ball_x, ball_y, ball_size, ball_size))  # Мяч
         
